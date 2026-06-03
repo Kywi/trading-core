@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GripTrader.Core</RootNamespace>
+    <AssemblyName>Trading.Backtest</AssemblyName>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Trading.Abstractions\Trading.Abstractions.csproj" />
+    <ProjectReference Include="..\Log\Log.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GripTrader.Tests" />
+  </ItemGroup>
+</Project>

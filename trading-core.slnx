@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Log/Log.csproj" />
+  <Project Path="Telegram/Telegram.csproj" />
+  <Project Path="Trading.Abstractions/Trading.Abstractions.csproj" />
+  <Project Path="Trading.Backtest/Trading.Backtest.csproj" />
+  <Project Path="Trading.Exchange.Binance/Trading.Exchange.Binance.csproj" />
+  <Project Path="Trading.Tuning/Trading.Tuning.csproj" />
+  <Project Path="Websockets/Websockets.csproj" />
+</Solution>

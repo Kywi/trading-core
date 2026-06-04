@@ -22,6 +22,19 @@ dotnet build trading-core.slnx
 
 There are no tests in this repo yet — the libraries are exercised by the consuming app's suite via `InternalsVisibleTo`. `trading-core.slnx` building standalone (with no consuming app present) is the self-containment gate.
 
+## Historical data (for backtests)
+
+`scripts/` has PowerShell-free Python downloaders for Binance spot history, writing
+the on-disk layout the `Trading.Backtest` feeders expect:
+
+```bash
+python scripts/download-binance-klines.py BNB SOL XRP          # klines (multi-year sweeps)
+python scripts/download-binance-aggtrades.py BCH --from 2025-01 --to 2025-03   # ticks (execution validation)
+```
+
+See [`scripts/README.md`](scripts/README.md) for options. Point a feeder's
+`BacktestKlineFolderPath` / `BacktestCsvPath` at the resulting folder.
+
 ## Consume it in a bot
 
 ```bash

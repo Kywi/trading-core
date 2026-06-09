@@ -447,17 +447,24 @@ namespace GripTrader.Core.Backtest
         /// <see cref="RealizedFunding"/>/<see cref="CumFunding"/> SEPARATELY from
         /// price PnL, but does move the wallet (so it feeds margin/liquidation).
         /// </summary>
-        public void ApplyFunding(string symbol, decimal markPrice, decimal fundingRate, long timestampMs)
+        /// <returns><c>true</c> if funding actually settled (an open position existed and
+        /// the rate/mark were valid); <c>false</c> if it was a no-op — so a caller can
+        /// report only the funding that moved a wallet (e.g. the feeder's dueFunding).</returns>
+        public bool ApplyFunding(string symbol, decimal markPrice, decimal fundingRate, long timestampMs)
         {
             lock (_lock)
             {
+                // No-op when there is no open position to settle against (e.g. funding due
+                // on the bar that first opens the position — funding runs before the fill),
+                // or the rate/mark is degenerate.
                 if (_netQty == 0m || markPrice <= 0m || fundingRate == 0m)
-                    return;
+                    return false;
 
                 var deltaWallet = -_netQty * markPrice * fundingRate;
                 _wallet += deltaWallet;
                 _realizedFunding += deltaWallet;   // lifetime accumulator (reporting / attribution)
                 _positionFunding += deltaWallet;   // current position only (feeds the liquidation decision)
+                return true;
             }
         }
 

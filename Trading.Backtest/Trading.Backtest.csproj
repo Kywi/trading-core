@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GripTrader.Tests" />
+    <InternalsVisibleTo Include="Trading.Backtest.Tests" />
   </ItemGroup>
 </Project>

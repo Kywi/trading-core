@@ -28,5 +28,26 @@ namespace GripTrader.Core.Bot
 
         Task<bool> CancelOrderAsync(string symbol, long orderId);
         Task<decimal> GetCurrentTotalEquityAsync(string symbol, decimal markPrice);
+
+        /// <summary>
+        /// Returns the position's <see cref="EquityBreakdown"/> — the
+        /// <c>(equity, maintenanceMargin)</c> pair the liquidation decision is
+        /// made from — at the supplied <paramref name="markPrice"/>.
+        /// <para>
+        /// This is an <b>additive, default-preserving</b> seam extension: the
+        /// default implementation returns
+        /// <c>(GetCurrentTotalEquityAsync(symbol, markPrice), 0m)</c>, so every
+        /// existing implementer (spot/live executors with no maintenance-margin
+        /// concept) keeps byte-identical behavior and needs no edit. Only the
+        /// perp mock executor overrides it to report per-leg
+        /// <c>(allocated equity, leg maintenance margin)</c> under isolated
+        /// margin. The five pre-existing members are unchanged.
+        /// </para>
+        /// </summary>
+        async Task<EquityBreakdown> GetEquityBreakdownAsync(string symbol, decimal markPrice)
+        {
+            var equity = await GetCurrentTotalEquityAsync(symbol, markPrice).ConfigureAwait(false);
+            return new EquityBreakdown(equity, 0m);
+        }
     }
 }

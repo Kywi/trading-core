@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GripTrader.Tests" />
+    <InternalsVisibleTo Include="Trading.Tuning.Tests" />
   </ItemGroup>
 </Project>

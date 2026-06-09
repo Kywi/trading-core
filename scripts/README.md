@@ -35,6 +35,41 @@ Tick-level, **much larger** (tens of MB to several GB per month) — streamed to
 downloaded one month at a time. Use only for short windows where trailing-stop /
 slippage fidelity matters; use klines for everything else.
 
+## USDⓈ-M futures (perpetuals) — for the pairs-on-perps build
+
+`download-binance-futures.py` pulls the **futures** archive (`data/futures/um/...`, a
+different base path than spot — the spot scripts cannot reach it). Three public streams:
+
+```bash
+python download-binance-futures.py BTC ETH --intervals 1h --from 2020-01 --to 2025-12
+python download-binance-futures.py SOL --streams klines,markprice,funding --from 2021-01 --to 2021-06
+python download-binance-futures.py BTC --list-since      # earliest available month per stream
+```
+
+- **klines** (last-trade OHLCV) and **markPriceKlines** (MARK-price OHLC) — both replay
+  through `HistoricalKlineFeeder` unchanged (same column order + epoch as spot). Funding
+  settles and liquidation triggers on **mark**, so markPrice is a *separate required* stream;
+  its `volume`/taker fields are 0 — do not treat as traded volume.
+- **fundingRate** (monthly only) — CSV columns `calc_time,funding_interval_hours,last_funding_rate`.
+  Read the per-row `funding_interval_hours` (8/4/1, dynamic) directly; never hard-code 8h.
+- SHA256-verified against each file's `.zip.CHECKSUM`; every extracted file is logged to
+  `<out>/futures/um/manifest.jsonl` (symbol, stream, interval, month, url, sha256, bytes) for
+  reproducibility. Re-runs skip files already present.
+- Layout: `<out>/futures/um/<SYM>/<stream>/<interval?>/<SYM>-...-YYYY-MM.csv`.
+- Archive floor is ~2020-01 (BTC); alts start later (SOL 2020-09) — use `--list-since` to find
+  each symbol's listing month. Maintenance-margin **leverage brackets are NOT here** (signed
+  REST `/fapi/v1/leverageBracket` only) — fetched out-of-band as a dated static snapshot.
+
+`enumerate-futures-universe.py` builds the **point-in-time, survivorship-bias-free universe**
+straight from the archive (the live `exchangeInfo` omits delisted names — the survivorship trap):
+
+```bash
+python enumerate-futures-universe.py --out futures-universe.json   # full roster (incl. delisted)
+python enumerate-futures-universe.py --spans BTCUSDT SRMUSDT SOLUSDT  # listing/delisting window
+```
+Lists all symbols under `klines/` (paginated S3) and derives each symbol's first/last available
+month; delisted names (e.g. `SRMUSDT`, archive ends 2024-05) appear in the roster and are flagged.
+
 ## Notes
 
 - 2025+ archives switched to **microsecond** timestamps — `Trading.Backtest`

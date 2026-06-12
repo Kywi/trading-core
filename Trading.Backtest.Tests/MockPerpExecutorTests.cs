@@ -407,5 +407,117 @@ namespace GripTrader.Core.Backtest.Tests
             Assert.True(px.WasLiquidated);
             Assert.Equal(0m, px.NetQty);
         }
+
+        // ---- 12. Margin-adjust seam: deposit raises equity by exactly delta ----
+        // TryAdjustWallet mirrors Binance isolated-margin add/remove on the FREE wallet.
+        [Fact]
+        public async Task AdjustWallet_Deposit_IncreasesEquityByExactlyDelta()
+        {
+            var px = new MockPerpExecutor(BaseConfig(taker: 0m, maker: 0m));
+            px.ProcessTick(Sym, Quote(100m), Mark(100m));
+            await px.PlaceMarketAsync(Sym, 10m, isBuy: true); // long 10 @ 100; allocated = 1000/3.
+
+            var walletBefore = px.Wallet;
+            var equityBefore = await px.GetCurrentTotalEquityAsync(Sym, 100m);
+
+            Assert.True(px.TryAdjustWallet(250m)); // deposit always succeeds.
+
+            Assert.Equal(walletBefore + 250m, px.Wallet);
+            var equityAfter = await px.GetCurrentTotalEquityAsync(Sym, 100m);
+            Assert.Equal(equityBefore + 250m, equityAfter); // equity rose by EXACTLY delta.
+            // Zero delta is a no-op that still returns true.
+            Assert.True(px.TryAdjustWallet(0m));
+            Assert.Equal(walletBefore + 250m, px.Wallet);
+        }
+
+        // ---- 13. Withdraw of free margin succeeds and lowers equity by exactly delta ----
+        [Fact]
+        public async Task AdjustWallet_WithdrawFreeMargin_Succeeds_LowersEquityByExactlyDelta()
+        {
+            var px = new MockPerpExecutor(BaseConfig(taker: 0m, maker: 0m, wallet: 100_000m));
+            px.ProcessTick(Sym, Quote(100m), Mark(100m));
+            await px.PlaceMarketAsync(Sym, 10m, isBuy: true); // long; allocated = 1000/3 ≈ 333.33.
+
+            var walletBefore = px.Wallet;        // ≈ 99 666.67 free.
+            var allocBefore = px.AllocatedMargin;
+            var equityBefore = await px.GetCurrentTotalEquityAsync(Sym, 100m);
+
+            Assert.True(px.TryAdjustWallet(-500m)); // withdraw free wallet.
+
+            Assert.Equal(walletBefore - 500m, px.Wallet);
+            Assert.Equal(allocBefore, px.AllocatedMargin); // allocated margin untouched.
+            var equityAfter = await px.GetCurrentTotalEquityAsync(Sym, 100m);
+            Assert.Equal(equityBefore - 500m, equityAfter); // equity fell by EXACTLY delta.
+        }
+
+        // ---- 14. Withdraw below the free wallet returns false and changes nothing ----
+        // The initial margin (allocatedMargin) is NEVER withdrawable; a request beyond the
+        // free wallet is rejected wholesale (no partial, no throw, state intact).
+        [Fact]
+        public async Task AdjustWallet_WithdrawBelowFreeWallet_ReturnsFalse_NoChange()
+        {
+            // Tiny wallet so the free part after the open is small. Leverage 1 ⇒ allocated == notional.
+            var px = new MockPerpExecutor(BaseConfig(leverage: 1m, taker: 0m, maker: 0m, wallet: 1_010m));
+            px.ProcessTick(Sym, Quote(100m), Mark(100m));
+            await px.PlaceMarketAsync(Sym, 10m, isBuy: true); // notional 1000; allocated 1000; free = 10.
+
+            var walletBefore = px.Wallet;        // 10 free.
+            var allocBefore = px.AllocatedMargin; // 1000 locked.
+            Assert.Equal(10m, walletBefore);
+            Assert.Equal(1_000m, allocBefore);
+
+            // Try to withdraw 11 (> the 10 free wallet, would dip into allocated margin) ⇒ reject.
+            Assert.False(px.TryAdjustWallet(-11m));
+            Assert.Equal(walletBefore, px.Wallet);       // unchanged.
+            Assert.Equal(allocBefore, px.AllocatedMargin); // unchanged.
+
+            // Withdraw exactly the free wallet (10) succeeds, leaving 0 free; allocated intact.
+            Assert.True(px.TryAdjustWallet(-10m));
+            Assert.Equal(0m, px.Wallet);
+            Assert.Equal(allocBefore, px.AllocatedMargin);
+        }
+
+        // ---- 15. Flat executor can withdraw up to the full wallet ----
+        [Fact]
+        public void AdjustWallet_FlatExecutor_WithdrawsUpToFullWallet()
+        {
+            var px = new MockPerpExecutor(BaseConfig(taker: 0m, maker: 0m, wallet: 2_000m));
+            // No position opened ⇒ the whole 2000 is free wallet, 0 allocated.
+            Assert.Equal(2_000m, px.Wallet);
+            Assert.Equal(0m, px.AllocatedMargin);
+
+            // Over-withdraw rejects.
+            Assert.False(px.TryAdjustWallet(-2_000.01m));
+            Assert.Equal(2_000m, px.Wallet);
+
+            // Withdraw the full wallet succeeds (flat ⇒ free == total).
+            Assert.True(px.TryAdjustWallet(-2_000m));
+            Assert.Equal(0m, px.Wallet);
+        }
+
+        // ---- 16. A free-wallet DEPOSIT does NOT save a position near liquidation ----
+        // VERIFIED in ProbeLiquidation: the probe reads allocatedMargin + leg unrealized +
+        // positionFunding ONLY — never the free wallet. So a big deposit to free wallet does
+        // NOT prop a short past its liquidation threshold. This pins that documented behavior.
+        [Fact]
+        public async Task AdjustWallet_BigDeposit_DoesNotSave_ShortNearLiquidation()
+        {
+            // Short 1 @ 100, leverage 10 ⇒ allocated = 10. Adverse mark high 130:
+            //   unrealized = -1×(130-100) = -30; allocated equity = 10 - 30 = -20;
+            //   maint = 130×0.10 = 13 ⇒ -20 < 13 ⇒ LIQUIDATE regardless of free wallet.
+            var px = new MockPerpExecutor(BaseConfig(leverage: 10m, maintRatio: 0.10m,
+                                                     taker: 0m, maker: 0m, wallet: 100_000m));
+            px.ProcessTick(Sym, Quote(100m), Mark(100m));
+            await px.PlaceMarketAsync(Sym, 1m, isBuy: false); // short 1 @ 100.
+
+            // Deposit a huge amount of FREE wallet — it must NOT change the allocated-equity probe.
+            Assert.True(px.TryAdjustWallet(1_000_000m));
+            Assert.Equal(100_000m - 10m + 1_000_000m, px.Wallet); // free wallet grew; allocated 10 locked.
+
+            // The adverse-high bar still liquidates — the deposit did not prop the position.
+            px.ProcessTick(Sym, Quote(100m), new MarkBar(100m, 130m, 99m, 100m, 2_000L));
+            Assert.True(px.WasLiquidated);
+            Assert.Equal(0m, px.NetQty);
+        }
     }
 }

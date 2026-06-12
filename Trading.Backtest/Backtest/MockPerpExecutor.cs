@@ -440,6 +440,57 @@ namespace GripTrader.Core.Backtest
         }
 
         /// <summary>
+        /// Adjust the free quote wallet by <paramref name="delta"/>, mirroring Binance
+        /// isolated-margin add/remove on an open position's wallet. This is a
+        /// default-preserving, strategy-agnostic seam: it moves only the FREE wallet
+        /// (the part not locked as initial margin), so it never props or weakens an open
+        /// position's liquidation hazard — <see cref="ProbeLiquidation"/> reads only
+        /// <c>allocatedMargin + leg unrealized + positionFunding</c> and never the free
+        /// wallet, so a deposit can NOT save a position near its liquidation threshold and
+        /// a withdraw can NOT trigger one. The liquidation arithmetic is therefore
+        /// unchanged by any wallet adjust.
+        /// <list type="bullet">
+        ///   <item><b>Deposit</b> (<c>delta &gt; 0</c>): always succeeds; <c>wallet +=
+        ///   delta</c>. New free wallet headroom for future fills only.</item>
+        ///   <item><b>Withdraw</b> (<c>delta &lt; 0</c>): succeeds only if the requested
+        ///   amount can be taken entirely from the FREE wallet — i.e.
+        ///   <c>wallet + delta &gt;= 0</c> (the initial margin held in
+        ///   <c>allocatedMargin</c> is never withdrawable). On success <c>wallet +=
+        ///   delta</c>; on a shortfall NOTHING changes and <c>false</c> is returned (no
+        ///   partial withdraw, no throw). A flat executor can withdraw up to the full
+        ///   wallet.</item>
+        ///   <item><b>Zero</b> (<c>delta == 0</c>): no-op, returns <c>true</c>.</item>
+        /// </list>
+        /// Decimal-only; no wall-clock/RNG; same-data ⇒ byte-identical state. The wallet
+        /// move feeds margin/liquidation only insofar as future FILLS see more/less free
+        /// margin — the already-open position's probe is untouched.
+        /// </summary>
+        /// <returns><c>true</c> if the adjustment was applied; <c>false</c> only on a
+        /// withdraw the free wallet cannot cover (state unchanged).</returns>
+        public bool TryAdjustWallet(decimal delta)
+        {
+            lock (_lock)
+            {
+                if (delta == 0m)
+                    return true; // no-op
+
+                if (delta > 0m)
+                {
+                    // Deposit: always succeeds. Adds free wallet headroom only.
+                    _wallet += delta;
+                    return true;
+                }
+
+                // Withdraw: take only from the free wallet, never from allocated margin.
+                // Reject (no partial, no throw) if the free wallet cannot cover it.
+                if (_wallet + delta < 0m)
+                    return false;
+                _wallet += delta;
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Apply a single funding event for this symbol at <paramref name="timestampMs"/>.
         /// <c>Δwallet = − signedSize × markPrice × fundingRate</c> (rate&gt;0 ⇒ longs
         /// pay shorts). Interval-agnostic: the executor applies exactly the events

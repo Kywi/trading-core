@@ -1,0 +1,4 @@
+interface:
+  display_name: ".NET Performance"
+  short_description: "Optimize .NET hot paths safely"
+  default_prompt: "Use $dotnet-performance when changing parsers, feeders, or tick hot paths."

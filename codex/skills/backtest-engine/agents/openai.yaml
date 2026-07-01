@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backtest Engine"
+  short_description: "Maintain deterministic backtest engines"
+  default_prompt: "Use $backtest-engine to change a feeder, executor, or trend backtest path."

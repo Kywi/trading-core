@@ -1,0 +1,4 @@
+interface:
+  display_name: "Binance Integration"
+  short_description: "Work on Binance exchange integration"
+  default_prompt: "Use $binance-integration to review Binance REST, websocket, or fee logic."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reusable Core Boundaries"
+  short_description: "Keep trading-core strategy-agnostic"
+  default_prompt: "Use $reusable-core-boundaries before touching trading-core seams."

@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex when working with code in this repository.
 
 ## Counterpart Guidance
 
-This is the Claude counterpart to [AGENTS.md](AGENTS.md). Keep both files synchronized: when submodule guidance changes, update `CLAUDE.md` and `AGENTS.md` in the same change. If they ever disagree, read both, follow the stricter/current instruction, and reconcile the files before continuing.
+This is the Codex counterpart to [CLAUDE.md](CLAUDE.md). Keep both files synchronized: when submodule guidance changes, update `AGENTS.md` and `CLAUDE.md` in the same change. If they ever disagree, read both, follow the stricter/current instruction, and reconcile the files before continuing.
 
 ## What this repo is
 
@@ -57,7 +57,7 @@ Each lib grants `InternalsVisibleTo` to the consuming app's test assembly so liv
 
 ## Skills
 
-`.claude/skills/` ships rules tuned to these libraries — read the relevant one before changing that area:
+The root repo's `codex/skills/` directory ships rules tuned to these libraries — read the relevant one before changing that area:
 - `reusable-core-boundaries` — the strategy-agnostic invariant + the seam contracts (read this first).
 - `binance-integration` — exchange API rules (signing, recvWindow, rate limits, fees, idempotent orders).
 - `backtest-engine` — feeder parity, mock-executor realism, determinism, epoch normalization.

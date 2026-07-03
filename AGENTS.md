@@ -57,7 +57,7 @@ Each lib grants `InternalsVisibleTo` to the consuming app's test assembly so liv
 
 ## Skills
 
-This submodule's `codex/skills/` directory ships rules tuned to these libraries — read the relevant one before changing that area:
+This submodule's `.codex/skills/` directory ships rules tuned to these libraries — read the relevant one before changing that area:
 - `reusable-core-boundaries` — the strategy-agnostic invariant + the seam contracts (read this first).
 - `binance-integration` — exchange API rules (signing, recvWindow, rate limits, fees, idempotent orders).
 - `backtest-engine` — feeder parity, mock-executor realism, determinism, epoch normalization.
